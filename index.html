@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora Indie</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Space+Grotesk:wght@400;600&display=swap');
+
+:root {
+  --cream: #f5f0e8;
+  --ink: #1a1a2e;
+  --rust: #c8553d;
+  --sage: #6b8f71;
+  --sand: #e8dcc8;
+  --muted: #9b8ea0;
+  --yellow: #f4c95d;
+  --lavender: #b8a9c9;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  background: var(--cream);
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(180,160,200,0.18) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(200,85,61,0.10) 0%, transparent 40%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23c8553d' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: 'Space Grotesk', sans-serif; padding: 20px;
+}
+h1.title {
+  font-family: 'Space Mono', monospace; font-size: 1rem;
+  color: var(--muted); letter-spacing: 0.35em; margin-bottom: 24px;
+  text-transform: uppercase; animation: fadeIn 1s ease forwards;
+}
+
+/* Stacked-paper wrapper */
+.calc-wrapper {
+  position: relative;
+  animation: slideUp 0.65s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.calc-wrapper::before, .calc-wrapper::after {
+  content: ''; position: absolute; width: 100%; height: 100%;
+  border-radius: 20px; border: 2px solid var(--ink); transition: transform 0.3s ease;
+}
+.calc-wrapper::before { top:8px; left:8px; background:var(--lavender); opacity:.45; z-index:-2; }
+.calc-wrapper::after  { top:4px; left:4px; background:var(--sand); z-index:-1; }
+.calc-wrapper:hover::before { transform: translate(2px,2px); }
+.calc-wrapper:hover::after  { transform: translate(1px,1px); }
+
+.calculator {
+  background: var(--cream); border: 2.5px solid var(--ink); border-radius: 20px;
+  padding: 22px 18px 18px; width: 340px; position: relative; overflow: hidden;
+  transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+.calculator.sci { width: 540px; }
+.corner-tag {
+  position: absolute; top:10px; right:14px;
+  font-family:'Space Mono',monospace; font-size:.58rem; color:var(--muted); opacity:.4;
+}
+
+/* Display */
+.display {
+  background: var(--ink); border-radius:14px; padding:14px 16px 12px;
+  margin-bottom:16px; min-height:88px; position:relative; overflow:hidden;
+}
+.display::after {
+  content:''; position:absolute; inset:0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,.015) 2px,rgba(255,255,255,.015) 4px);
+  pointer-events:none;
+}
+.d-mode { font-family:'Space Mono',monospace; font-size:.5rem; color:var(--sage); letter-spacing:.22em; text-transform:uppercase; margin-bottom:4px; }
+.d-op   { font-family:'Space Mono',monospace; font-size:.76rem; color:var(--muted); min-height:16px; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:rtl; }
+.d-res  { font-family:'Space Mono',monospace; font-size:2.1rem; font-weight:700; color:var(--cream); text-align:right; min-height:44px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.d-res.pop { animation: resultPop .28s cubic-bezier(0.34,1.56,0.64,1); }
+
+/* Sci toggle */
+.btn-sci-toggle {
+  width:100%; height:36px; border-radius:10px; border:2px dashed var(--sage);
+  background:transparent; color:var(--sage); cursor:pointer;
+  font-family:'Space Mono',monospace; font-size:.62rem; letter-spacing:.12em; text-transform:uppercase;
+  margin-bottom:14px; display:flex; align-items:center; justify-content:center; gap:7px;
+  transition:all .25s ease; overflow:hidden; position:relative;
+}
+.btn-sci-toggle::before {
+  content:''; position:absolute; inset:0; background:var(--sage);
+  transform:scaleX(0); transform-origin:left; transition:transform .3s ease; z-index:0;
+}
+.btn-sci-toggle:hover::before, .btn-sci-toggle.active::before { transform:scaleX(1); }
+.btn-sci-toggle:hover, .btn-sci-toggle.active { color:var(--cream); border-style:solid; }
+.btn-sci-toggle span { position:relative; z-index:1; }
+.sci-icon { font-size:1rem; transition:transform .45s cubic-bezier(0.34,1.56,0.64,1); display:inline-block; }
+.btn-sci-toggle.active .sci-icon { transform:rotate(180deg); }
+
+/* Layout */
+.main-grid { display:flex; gap:10px; }
+.basic-buttons { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; flex:1; }
+.sci-panel {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:7px;
+  width:0; overflow:hidden; opacity:0;
+  transition:width .5s cubic-bezier(0.34,1.56,0.64,1), opacity .35s ease;
+}
+.sci .sci-panel { width:163px; opacity:1; }
+
+/* Buttons */
+.btn {
+  height:52px; border-radius:10px; border:2px solid var(--ink);
+  cursor:pointer; font-family:'Space Mono',monospace; font-size:.88rem; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .1s, box-shadow .1s;
+  box-shadow:3px 3px 0 var(--ink);
+  user-select:none; position:relative; overflow:hidden;
+}
+.btn::after {
+  content:''; position:absolute; width:10px; height:10px;
+  background:rgba(255,255,255,.55); border-radius:50%;
+  transform:scale(0); opacity:0; pointer-events:none;
+}
+.btn.ripple::after { animation:rippleAnim .45s ease-out forwards; }
+.btn:active { transform:translate(2px,2px); box-shadow:1px 1px 0 var(--ink); }
+
+.num  { background:var(--cream); color:var(--ink); } .num:hover  { background:var(--sand); }
+.op   { background:var(--sand);  color:var(--ink); } .op:hover   { background:#ddd0b8; }
+.fn   { background:var(--lavender); color:var(--ink); } .fn:hover   { background:#a898ba; }
+.del  { background:var(--rust); color:var(--cream); } .del:hover  { background:#b04030; }
+.eq   { background:var(--ink); color:var(--cream); grid-column:span 2; font-size:1.15rem; box-shadow:3px 3px 0 var(--rust); }
+.eq:hover { background:#2d2d4e; } .eq:active { box-shadow:1px 1px 0 var(--rust); }
+.cst  { background:var(--yellow); color:var(--ink); } .cst:hover  { background:#e8b840; }
+
+.btn-sf {
+  height:44px; border-radius:8px; border:2px solid var(--ink); cursor:pointer;
+  font-family:'Space Mono',monospace; font-size:.7rem;
+  background:#ede4d4; color:var(--ink);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:2px 2px 0 var(--ink); transition:transform .1s, box-shadow .1s;
+  user-select:none;
+}
+.btn-sf:hover  { background:#ddd0b8; }
+.btn-sf:active { transform:translate(1px,1px); box-shadow:1px 1px 0 var(--ink); }
+
+/* History */
+.history { margin-top:12px; border-top:1.5px dashed var(--muted); padding-top:8px; max-height:76px; overflow-y:auto; }
+.history::-webkit-scrollbar { width:3px; }
+.history::-webkit-scrollbar-thumb { background:var(--muted); border-radius:2px; }
+.h-item {
+  font-family:'Space Mono',monospace; font-size:.62rem; color:var(--muted);
+  text-align:right; padding:2px 0; animation:histSlide .25s ease;
+}
+.h-item:first-child { color:var(--ink); opacity:.65; }
+
+/* Floating deco */
+.deco { position:fixed; font-size:1.4rem; opacity:.055; pointer-events:none; user-select:none; }
+.d1{top:12%;left:7%;   animation:floatD 9s  ease-in-out infinite;}
+.d2{top:72%;left:5%;   animation:floatD 7s  ease-in-out infinite 1.5s;}
+.d3{top:18%;right:7%;  animation:floatD 8s  ease-in-out infinite 3s;}
+.d4{top:78%;right:5%;  animation:floatD 10s ease-in-out infinite .5s;}
+.d5{top:48%;left:3%;   animation:floatD 11s ease-in-out infinite 2s;}
+
+/* Keyframes */
+@keyframes slideUp    { from{opacity:0;transform:translateY(32px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn     { from{opacity:0} to{opacity:.65} }
+@keyframes resultPop  { 0%{transform:scale(1)} 55%{transform:scale(1.05)} 100%{transform:scale(1)} }
+@keyframes rippleAnim { 0%{transform:scale(0);opacity:.65} 100%{transform:scale(22);opacity:0} }
+@keyframes histSlide  { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+@keyframes floatD     { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-14px) rotate(7deg)} }
+@keyframes shakeErr   { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+.shake { animation:shakeErr .4s ease; }
+</style>
+</head>
+<body>
+
+<div class="deco d1">∑</div>
+<div class="deco d2">√</div>
+<div class="deco d3">π</div>
+<div class="deco d4">∞</div>
+<div class="deco d5">∂</div>
+
+<h1 class="title">✦ calculadora ✦</h1>
+
+<div class="calc-wrapper">
+<div class="calculator" id="calc">
+  <div class="corner-tag">v2.0</div>
+
+  <button class="btn-sci-toggle" id="sciBtn" onclick="toggleSci()">
+    <span class="sci-icon">⚗</span>
+    <span id="sciLabel">Modo Científico</span>
+  </button>
+
+  <div class="display" id="display">
+    <div class="d-mode" id="modeLabel">BÁSICO</div>
+    <div class="d-op"   id="dOp"></div>
+    <div class="d-res"  id="dRes">0</div>
+  </div>
+
+  <div class="main-grid">
+    <div class="sci-panel" id="sciPanel">
+      <button class="btn-sf" onclick="sciF('sin')">sin</button>
+      <button class="btn-sf" onclick="sciF('cos')">cos</button>
+      <button class="btn-sf" onclick="sciF('tan')">tan</button>
+      <button class="btn-sf" onclick="sciF('asin')">sin⁻¹</button>
+      <button class="btn-sf" onclick="sciF('acos')">cos⁻¹</button>
+      <button class="btn-sf" onclick="sciF('atan')">tan⁻¹</button>
+      <button class="btn-sf" onclick="sciF('log')">log</button>
+      <button class="btn-sf" onclick="sciF('ln')">ln</button>
+      <button class="btn-sf" onclick="sciF('sqrt')">√</button>
+      <button class="btn-sf" onclick="sciF('sq')">x²</button>
+      <button class="btn-sf" onclick="sciF('inv')">1/x</button>
+      <button class="btn-sf" onclick="ap('**')">^</button>
+      <button class="btn-sf" onclick="ap('(')">(</button>
+      <button class="btn-sf" onclick="ap(')')">)</button>
+      <button class="btn-sf" onclick="ap('%')">%</button>
+    </div>
+
+    <div class="basic-buttons">
+      <button class="btn fn"  onclick="clearAll()">C</button>
+      <button class="btn fn"  onclick="toggleSign()">+/−</button>
+      <button class="btn cst" onclick="apC(Math.PI,'π')">π</button>
+      <button class="btn del" onclick="backspace()">⌫</button>
+
+      <button class="btn num" onclick="ap('7')">7</button>
+      <button class="btn num" onclick="ap('8')">8</button>
+      <button class="btn num" onclick="ap('9')">9</button>
+      <button class="btn op"  onclick="ap('/')">÷</button>
+
+      <button class="btn num" onclick="ap('4')">4</button>
+      <button class="btn num" onclick="ap('5')">5</button>
+      <button class="btn num" onclick="ap('6')">6</button>
+      <button class="btn op"  onclick="ap('*')">×</button>
+
+      <button class="btn num" onclick="ap('1')">1</button>
+      <button class="btn num" onclick="ap('2')">2</button>
+      <button class="btn num" onclick="ap('3')">3</button>
+      <button class="btn op"  onclick="ap('-')">−</button>
+
+      <button class="btn cst" onclick="apC(Math.E,'e')">e</button>
+      <button class="btn num" onclick="ap('0')">0</button>
+      <button class="btn num" onclick="ap('.')">.</button>
+      <button class="btn op"  onclick="ap('+')">+</button>
+
+      <button class="btn eq"  onclick="calculate()">=</button>
+    </div>
+  </div>
+
+  <div class="history" id="hist"></div>
+</div>
+</div>
+
+<script>
+let expr='', lastRes=0, justCalc=false, isSci=false, histItems=[];
+const dOp=document.getElementById('dOp'), dRes=document.getElementById('dRes');
+const display=document.getElementById('display'), calc=document.getElementById('calc');
+const sciBtn=document.getElementById('sciBtn'), sciLabel=document.getElementById('sciLabel');
+const modeLabel=document.getElementById('modeLabel'), hist=document.getElementById('hist');
+
+document.querySelectorAll('.btn').forEach(b=>{
+  b.addEventListener('mousedown',function(){
+    this.classList.remove('ripple'); void this.offsetWidth; this.classList.add('ripple');
+    setTimeout(()=>this.classList.remove('ripple'),500);
+  });
+});
+
+function beep(t){
+  try{
+    const a=new(window.AudioContext||window.webkitAudioContext)();
+    const o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination);
+    const types={click:[600,'sine',.05,.06],eq:[880,'triangle',.07,.15],err:[200,'sawtooth',.06,.18]};
+    const[f,tp,gv,dur]=types[t]||types.click;
+    o.frequency.value=f; o.type=tp;
+    g.gain.setValueAtTime(gv,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,a.currentTime+dur);
+    o.start();o.stop(a.currentTime+dur);
+  }catch(e){}
+}
+
+const fmt=e=>e.replace(/\*\*/g,'^').replace(/\*/g,'×').replace(/\//g,'÷');
+
+function updateDisp(){
+  dOp.textContent=fmt(expr);
+  dRes.textContent=expr?fmt(expr):'0';
+}
+
+function ap(v){
+  beep('click');
+  if(justCalc){expr='+-*/'.includes(v)?String(lastRes):'';justCalc=false;}
+  expr+=v; updateDisp();
+}
+
+function apC(val,sym){
+  beep('click');
+  if(justCalc){expr='';justCalc=false;}
+  expr+=val;
+  const s=String(val);
+  dOp.textContent=fmt(expr).split(s).join(sym);
+  dRes.textContent=fmt(expr).split(s).join(sym);
+}
+
+function clearAll(){beep('click');expr='';justCalc=false;dOp.textContent='';dRes.textContent='0';}
+
+function backspace(){
+  beep('click');
+  if(justCalc){clearAll();return;}
+  expr=expr.slice(0,-1); updateDisp();
+}
+
+function toggleSign(){
+  beep('click'); if(!expr)return;
+  expr=expr.startsWith('-')?expr.slice(1):'-'+expr; updateDisp();
+}
+
+function pop(){dRes.classList.remove('pop');void dRes.offsetWidth;dRes.classList.add('pop');}
+
+function addHist(t){
+  histItems.unshift(t); if(histItems.length>8)histItems.pop();
+  hist.innerHTML=histItems.map(x=>`<div class="h-item">${x}</div>`).join('');
+}
+
+function showErr(){
+  beep('err'); dRes.textContent='Error'; pop();
+  display.classList.remove('shake'); void display.offsetWidth; display.classList.add('shake');
+  setTimeout(()=>display.classList.remove('shake'),450);
+  expr=''; justCalc=false;
+}
+
+function calculate(){
+  if(!expr)return; beep('eq');
+  try{
+    let r=eval(expr.replace(/%/g,'*0.01'));
+    if(!isFinite(r))throw 0;
+    r=+parseFloat(r.toPrecision(12));
+    dOp.textContent=fmt(expr)+' ='; dRes.textContent=r; pop();
+    addHist(fmt(expr)+' = '+r);
+    lastRes=r; expr=String(r); justCalc=true;
+  }catch(e){showErr();}
+}
+
+function sciF(fn){
+  beep('click');
+  try{
+    let v=expr?eval(expr.replace(/%/g,'*0.01')):0;
+    const toR=x=>x*Math.PI/180, toD=x=>x*180/Math.PI;
+    let r,lab;
+    switch(fn){
+      case 'sin':  r=Math.sin(toR(v));  lab=`sin(${v})`; break;
+      case 'cos':  r=Math.cos(toR(v));  lab=`cos(${v})`; break;
+      case 'tan':  r=Math.tan(toR(v));  lab=`tan(${v})`; break;
+      case 'asin': r=toD(Math.asin(v)); lab=`sin⁻¹(${v})`; break;
+      case 'acos': r=toD(Math.acos(v)); lab=`cos⁻¹(${v})`; break;
+      case 'atan': r=toD(Math.atan(v)); lab=`tan⁻¹(${v})`; break;
+      case 'log':  r=Math.log10(v);     lab=`log(${v})`; break;
+      case 'ln':   r=Math.log(v);       lab=`ln(${v})`; break;
+      case 'sqrt': r=Math.sqrt(v);      lab=`√(${v})`; break;
+      case 'sq':   r=Math.pow(v,2);     lab=`(${v})²`; break;
+      case 'inv':  r=1/v;               lab=`1/(${v})`; break;
+    }
+    r=+parseFloat(r.toPrecision(10));
+    if(!isFinite(r))throw 0;
+    dOp.textContent=lab+' ='; dRes.textContent=r; pop();
+    addHist(lab+' = '+r);
+    lastRes=r; expr=String(r); justCalc=true;
+  }catch(e){showErr();}
+}
+
+function toggleSci(){
+  isSci=!isSci;
+  calc.classList.toggle('sci',isSci);
+  sciBtn.classList.toggle('active',isSci);
+  sciLabel.textContent=isSci?'Modo Básico':'Modo Científico';
+  modeLabel.textContent=isSci?'CIENTÍFICO':'BÁSICO';
+  beep('click');
+}
+
+document.addEventListener('keydown',e=>{
+  if('0123456789'.includes(e.key))ap(e.key);
+  else if(['+','-','*','/'].includes(e.key))ap(e.key);
+  else if(e.key==='.')ap('.');
+  else if(e.key==='Enter'||e.key==='=')calculate();
+  else if(e.key==='Backspace')backspace();
+  else if(e.key==='Escape')clearAll();
+  else if(e.key==='('||e.key===')')ap(e.key);
+});
+</script>
+</body>
+</html>
